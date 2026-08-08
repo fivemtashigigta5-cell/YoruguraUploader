@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ヨルグラ アップローダー</title>
+<style>
+  :root{
+    --ink:#eef1ff;
+    --muted:#a8b0d8;
+    --line:rgba(255,255,255,.14);
+    --panel:rgba(22,24,54,.62);
+    --panel-2:rgba(30,32,72,.55);
+    --accent:#8b7bff;
+    --accent-2:#5ee0c8;
+    --ok:#6ee7a8;
+    --ng:#ff8095;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    color:var(--ink);
+    font-family:"Segoe UI","Hiragino Kaku Gothic ProN","Yu Gothic UI",Meiryo,sans-serif;
+    background:#0a0a1f;
+    background-image:
+      radial-gradient(1100px 620px at 78% -10%, rgba(139,123,255,.34), transparent 62%),
+      radial-gradient(900px 520px at 10% 8%, rgba(58,90,190,.30), transparent 60%),
+      radial-gradient(760px 640px at 50% 112%, rgba(94,224,200,.14), transparent 60%),
+      linear-gradient(175deg,#141a4a 0%,#101038 34%,#0d0a26 66%,#07060f 100%);
+    background-attachment:fixed;
+    min-height:100vh;
+  }
+  /* 星 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;
+    background-image:
+      radial-gradient(1.4px 1.4px at 12% 22%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 34% 9%,  #dfe6ff, transparent),
+      radial-gradient(1.6px 1.6px at 62% 17%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 82% 31%, #cfe0ff, transparent),
+      radial-gradient(1.3px 1.3px at 22% 48%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 71% 58%, #e8ecff, transparent),
+      radial-gradient(1.5px 1.5px at 46% 74%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 90% 79%, #dbe4ff, transparent),
+      radial-gradient(1.2px 1.2px at 8%  86%, #fff, transparent);
+  }
+  .wrap{position:relative;max-width:940px;margin:0 auto;padding:40px 18px 72px}
+  header{text-align:center;margin-bottom:26px}
+  h1{
+    margin:0 0 6px;font-size:30px;letter-spacing:.14em;font-weight:700;
+    background:linear-gradient(92deg,#fff 0%,#c9c2ff 45%,#8ee6d6 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .sub{margin:0;color:var(--muted);font-size:13px;letter-spacing:.06em}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:18px 20px;
+    margin-bottom:18px;
+    box-shadow:0 10px 34px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .card h2{margin:0 0 12px;font-size:15px;letter-spacing:.08em;color:#dfe2ff;font-weight:600}
+
+  /* ---- APIキー ---- */
+  .keyrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  input[type=password],input[type=text]{
+    flex:1 1 260px;min-width:200px;
+    background:rgba(8,10,32,.72);
+    border:1px solid var(--line);border-radius:10px;
+    color:var(--ink);padding:11px 13px;font-size:14px;outline:none;
+    font-family:inherit;
+  }
+  input:focus{border-color:rgba(139,123,255,.75);box-shadow:0 0 0 3px rgba(139,123,255,.18)}
+  button{
+    font-family:inherit;font-size:13px;cursor:pointer;
+    border-radius:10px;padding:10px 16px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,.07);color:var(--ink);
+    transition:background .15s,border-color .15s,transform .08s;
+  }
+  button:hover{background:rgba(255,255,255,.14)}
+  button:active{transform:translateY(1px)}
+  button.primary{
+    border-color:transparent;font-weight:600;color:#120f2c;
+    background:linear-gradient(94deg,#9a8cff,#6fe3cd);
+  }
+  button.primary:hover{filter:brightness(1.08);background:linear-gradient(94deg,#9a8cff,#6fe3cd)}
+  button.danger{border-color:rgba(255,128,149,.4);color:#ffbcc7}
+  button.danger:hover{background:rgba(255,128,149,.16)}
+
+  .check{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px;user-select:none;cursor:pointer}
+  .check input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+
+  .keystate{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:13px;color:var(--muted)}
+  .keymask{
+    font-family:Consolas,"Courier New",monospace;letter-spacing:.06em;
+    background:rgba(8,10,32,.7);border:1px solid var(--line);border-radius:8px;
+    padding:7px 12px;color:#cfd4ff;
+  }
+  .badge{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .hint{margin:10px 0 0;font-size:12px;line-height:1.75;color:var(--muted)}
+  .hint a{color:#9fe9da}
+
+  .banner{
+    display:none;margin-top:12px;padding:11px 14px;border-radius:10px;font-size:13px;
+    background:rgba(255,128,149,.13);border:1px solid rgba(255,128,149,.36);color:#ffc2cc;
+  }
+  .banner.show{display:block}
+
+  /* ---- レーン ---- */
+  .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px}
+  .zone{
+    position:relative;
+    border:1.5px dashed rgba(255,255,255,.26);
+    border-radius:14px;
+    background:var(--panel-2);
+    padding:20px 14px;
+    text-align:center;cursor:pointer;
+    transition:border-color .15s,background .15s,transform .12s;
+    min-height:142px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  }
+  .zone:hover{border-color:rgba(139,123,255,.8);background:rgba(45,42,96,.6);transform:translateY(-2px)}
+  .zone.over{border-color:var(--accent-2);background:rgba(50,80,88,.6);border-style:solid}
+  .zone .no{font-size:11px;letter-spacing:.2em;color:var(--accent-2);opacity:.9}
+  .zone .ttl{font-size:15px;font-weight:600;letter-spacing:.05em}
+  .zone .dsc{font-size:11.5px;color:var(--muted);line-height:1.6}
+
+  .locked .zone{opacity:.35;pointer-events:none;filter:grayscale(.5)}
+
+  .paste{
+    margin-top:12px;text-align:center;font-size:12px;color:var(--muted);
+    border:1px solid var(--line);border-radius:10px;padding:9px;background:rgba(10,12,36,.4);
+  }
+  kbd{
+    background:rgba(255,255,255,.1);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:5px;padding:1px 6px;font-family:Consolas,monospace;font-size:11px;color:#e6e9ff;
+  }
+
+  /* ---- 結果 ---- */
+  .results{display:flex;flex-direction:column;gap:9px}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:16px 0}
+  .item{
+    display:flex;align-items:center;gap:12px;
+    background:rgba(12,14,40,.55);
+    border:1px solid var(--line);border-left-width:3px;
+    border-radius:11px;padding:9px 12px;
+  }
+  .item.uploading{border-left-color:#9aa2cc}
+  .item.success{border-left-color:var(--ok)}
+  .item.error{border-left-color:var(--ng)}
+  .thumb{
+    width:52px;height:52px;flex:0 0 52px;border-radius:8px;object-fit:cover;
+    background:rgba(255,255,255,.06);border:1px solid var(--line);
+  }
+  .meta{flex:1 1 auto;min-width:0}
+  .fname{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg{font-size:13px;word-break:break-all;line-height:1.5;margin-top:2px}
+  .item.uploading .msg{color:#b9c0e8}
+  .item.success .msg{color:var(--ok);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .item.success .msg:hover{color:#a7f5c9}
+  .item.error .msg{color:var(--ng)}
+  .copy{flex:0 0 auto;padding:8px 13px;font-size:12px}
+  .copy.done{background:rgba(110,231,168,.2);border-color:rgba(110,231,168,.5);color:#bff3d5}
+  .spin{
+    width:13px;height:13px;border-radius:50%;display:inline-block;vertical-align:-2px;margin-right:7px;
+    border:2px solid rgba(255,255,255,.22);border-top-color:#cfd4ff;animation:sp .8s linear infinite;
+  }
+  @keyframes sp{to{transform:rotate(360deg)}}
+  footer{text-align:center;color:rgba(168,176,216,.6);font-size:11.5px;margin-top:28px;line-height:1.9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>ヨルグラ アップローダー</h1>
+    <p class="sub">画像をドロップするだけで共有URLを発行します</p>
+  </header>
+
+  <!-- APIキー設定 -->
+  <section class="card" id="key-card">
+    <h2>APIキー設定</h2>
+
+    <!-- 未設定時 -->
+    <div id="key-setup">
+      <div class="keyrow">
+        <input type="password" id="key-input" placeholder="fivemanage の画像用APIキーを貼り付け" autocomplete="off" spellcheck="false">
+        <button class="primary" id="key-save">保存して開始</button>
+      </div>
+      <div class="keyrow" style="margin-top:10px">
+        <label class="check"><input type="checkbox" id="key-persist" checked>この端末に保存する（オフならタブを閉じると消えます）</label>
+      </div>
+      <p class="hint">
+        キーはこのブラウザ内にのみ保存され、fivemanage 以外へは送信されません。<br>
+        共用PCでは「この端末に保存する」をオフにしてください。
+      </p>
+      <div class="banner" id="key-error"></div>
+    </div>
+
+    <!-- 設定済み時 -->
+    <div id="key-ready" style="display:none">
+      <div class="keystate">
+        <span>設定済みキー：</span>
+        <span class="keymask" id="key-mask">----••••</span>
+        <span class="badge" id="key-scope">保存先</span>
+        <button id="key-change">キー変更</button>
+        <button class="danger" id="key-clear">キー削除</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ドロップゾーン -->
+  <section class="card" id="lane-card">
+    <h2>アップロード</h2>
+    <div class="lanes">
+      <div class="zone" data-lane="resize">
+        <span class="no">01</span>
+        <span class="ttl">高さ300pxにリサイズ</span>
+        <span class="dsc">縦を300pxへ縮小（PNG・透過を保持）</span>
+      </div>
+      <div class="zone" data-lane="compress">
+        <span class="no">02</span>
+        <span class="ttl">画質を圧縮</span>
+        <span class="dsc">解像度そのままJPEG化<br>1MB以下になるまで自動調整</span>
+      </div>
+      <div class="zone" data-lane="gif">
+        <span class="no">03</span>
+        <span class="ttl">GIFをそのまま</span>
+        <span class="dsc">アニメーションを壊さず無変換で送信</span>
+      </div>
+      <div class="zone" data-lane="raw">
+        <span class="no">04</span>
+        <span class="ttl">無加工でアップ</span>
+        <span class="dsc">元ファイルをそのまま送信（最大20MB）</span>
+      </div>
+    </div>
+    <input type="file" id="picker" multiple accept="image/*" style="display:none">
+    <div class="paste"><kbd>Ctrl</kbd> + <kbd>V</kbd> でクリップボードの画像をそのまま投稿できます（「02 画質を圧縮」で処理されます）</div>
+  </section>
+
+  <!-- 結果 -->
+  <section class="card">
+    <h2>アップロード結果</h2>
+    <div class="results" id="results">
+      <div class="empty" id="results-empty">まだアップロードはありません。<br>結果はこのページを離れると消えます。</div>
+    </div>
+  </section>
+
+  <footer>
+    ヨルグラ / Yorugura &nbsp;·&nbsp; 画像ホスト: fivemanage<br>
+    APIキーはブラウザ内保存のみ。ソースコードには含まれていません。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+   *  定数
+   * ========================================================== */
+  var API_URL      = 'https://fmapi.net/api/v2/image'; // 送信先は固定（UIから変更不可）
+  var STORAGE_KEY  = 'yorugura_fm_api_key';
+  var MAX_BYTES    = 20 * 1024 * 1024; // 20MB: 送信前に拒否
+  var TARGET_BYTES = 1 * 1024 * 1024;  // 1MB: 圧縮の目標サイズ
+  var RESIZE_H     = 300;
+  var Q_START      = 0.7;
+  var Q_MIN        = 0.3;
+  var Q_STEP       = 0.1;
+
+  /* ============================================================
+   *  DOM
+   * ========================================================== */
+  var $ = function (id) { return document.getElementById(id); };
+  var keySetup   = $('key-setup');
+  var keyReady   = $('key-ready');
+  var keyInput   = $('key-input');
+  var keyPersist = $('key-persist');
+  var keyMask    = $('key-mask');
+  var keyScope   = $('key-scope');
+  var keyError   = $('key-error');
+  var laneCard   = $('lane-card');
+  var picker     = $('picker');
+  var results    = $('results');
+  var resultsEmpty = $('results-empty');
+
+  /* ============================================================
+   *  APIキー管理
+   *  - ソースには一切ハードコードしない
+   *  - localStorage（端末保存） / sessionStorage（タブ限り）
+   * ========================================================== */
+  var apiKey = null;
+
+  function safeGet(store) {
+    try { return store.getItem(STORAGE_KEY); } catch (e) { return null; }
+  }
+  function safeRemove(store) {
+    try { store.removeItem(STORAGE_KEY); } catch (e) { /* noop */ }
+  }
+
+  function loadKey() {
+    var v = safeGet(window.localStorage);
+    if (v) { return { key: v, persist: true }; }
+    v = safeGet(window.sessionStorage);
+    if (v) { return { key: v, persist: false }; }
+    return null;
+  }
+
+  function storeKey(key, persist) {
+    safeRemove(window.localStorage);
+    safeRemove(window.sessionStorage);
+    try {
+      (persist ? window.localStorage : window.sessionStorage).setItem(STORAGE_KEY, key);
+    } catch (e) {
+      // プライベートモード等で保存できなくてもメモリ上では動作させる
+      console.warn('APIキーの保存に失敗しました（メモリ上のみ保持）', e);
+    }
+  }
+
+  function forgetKey() {
+    safeRemove(window.localStorage);
+    safeRemove(window.sessionStorage);
+    apiKey = null;
+  }
+
+  function maskOf(key) {
+    if (!key) { return '••••'; }
+    return key.slice(0, 4) + '••••••••';
+  }
+
+  function showKeySetup(message) {
+    keySetup.style.display = '';
+    keyReady.style.display = 'none';
+    laneCard.classList.add('locked');
+    keyInput.value = '';
+    if (message) {
+      keyError.textContent = message;
+      keyError.classList.add('show');
+    } else {
+      keyError.textContent = '';
+      keyError.classList.remove('show');
+    }
+    keyInput.focus();
+  }
+
+  function showKeyReady(persist) {
+    keySetup.style.display = 'none';
+    keyReady.style.display = '';
+    laneCard.classList.remove('locked');
+    keyMask.textContent = maskOf(apiKey);
+    keyScope.textContent = persist ? 'この端末に保存中' : 'このタブのみ';
+    keyError.classList.remove('show');
+  }
+
+  $('key-save').addEventListener('click', function () {
+    var v = keyInput.value.trim();
+    if (!v) {
+      keyError.textContent = 'APIキーを入力してください。';
+      keyError.classList.add('show');
+      return;
+    }
+    apiKey = v;
+    var persist = !!keyPersist.checked;
+    storeKey(apiKey, persist);
+    showKeyReady(persist);
+  });
+
+  keyInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { $('key-save').click(); }
+  });
+
+  $('key-change').addEventListener('click', function () { showKeySetup(null); });
+
+  $('key-clear').addEventListener('click', function () {
+    forgetKey();
+    showKeySetup('APIキーを削除しました。');
+  });
+
+  /* ============================================================
+   *  結果リスト
+   * ========================================================== */
+  function addRow(file) {
+    if (resultsEmpty) { resultsEmpty.style.display = 'none'; }
+
+    var row = document.createElement('div');
+    row.className = 'item uploading';
+
+    var thumb = document.createElement('img');
+    thumb.className = 'thumb';
+    thumb.alt = '';
+    var objUrl = null;
+    try {
+      objUrl = URL.createObjectURL(file);
+      thumb.src = objUrl;
+    } catch (e) { /* プレビュー不可でも続行 */ }
+
+    var meta = document.createElement('div');
+    meta.className = 'meta';
+
+    var fname = document.createElement('div');
+    fname.className = 'fname';
+    fname.textContent = file.name || '(名称なし)';
+
+    var msg = document.createElement('div');
+    msg.className = 'msg';
+    msg.innerHTML = '<span class="spin"></span>アップロード中...';
+
+    meta.appendChild(fname);
+    meta.appendChild(msg);
+
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'copy';
+    copyBtn.textContent = 'コピー';
+    copyBtn.style.display = 'none';
+
+    row.appendChild(thumb);
+    row.appendChild(meta);
+    row.appendChild(copyBtn);
+    results.appendChild(row);
+
+    return {
+      note: function (text) {
+        row.className = 'item uploading';
+        msg.innerHTML = '<span class="spin"></span>';
+        msg.appendChild(document.createTextNode(text));
+      },
+      success: function (url) {
+        row.className = 'item success';
+        msg.textContent = url;
+        msg.title = 'クリックで新しいタブを開きます';
+        msg.addEventListener('click', function () { window.open(url, '_blank', 'noopener'); });
+        copyBtn.style.display = '';
+        copyBtn.addEventListener('click', function () { copyUrl(url, copyBtn); });
+        if (objUrl) { URL.revokeObjectURL(objUrl); }
+      },
+      fail: function (text) {
+        row.className = 'item error';
+        msg.textContent = text;
+        if (objUrl) { URL.revokeObjectURL(objUrl); }
+      }
+    };
+  }
+
+  function copyUrl(url, btn) {
+    var done = function () {
+      var old = btn.textContent;
+      btn.textContent = '✓ コピー済';
+      btn.classList.add('done');
+      setTimeout(function () {
+        btn.textContent = old === '✓ コピー済' ? 'コピー' : old;
+        btn.classList.remove('done');
+      }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
+    } else {
+      fallbackCopy(url, done);
+    }
+  }
+
+  function fallbackCopy(url, done) {
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) { /* noop */ }
+    document.body.removeChild(ta);
+  }
+
+  /* ============================================================
+   *  画像処理
+   * ========================================================== */
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('画像として読み込めませんでした')); };
+      img.src = url;
+    });
+  }
+
+  function toBlob(canvas, type, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (blob) { resolve(blob); } else { reject(new Error('画像の変換に失敗しました')); }
+      }, type, quality);
+    });
+  }
+
+  function draw(img, w, h, opaque) {
+    var canvas = document.createElement('canvas');
+    canvas.width  = Math.max(1, Math.round(w));
+    canvas.height = Math.max(1, Math.round(h));
+    var ctx = canvas.getContext('2d');
+    if (opaque) {
+      // JPEGは透過を表現できないため、透明部分を白で塗り潰す（未塗装だと黒潰れする）
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  // 01: 高さ300pxへリサイズ。透過を保つため PNG のまま出力（PNGはquality引数を無視するので指定しない）
+  function processResize(file) {
+    return loadImage(file).then(function (img) {
+      var w = img.naturalWidth  || img.width;
+      var h = img.naturalHeight || img.height;
+      if (h > RESIZE_H) {
+        w = w * (RESIZE_H / h);
+        h = RESIZE_H;
+      }
+      return toBlob(draw(img, w, h, false), 'image/png');
+    }).then(function (blob) {
+      return named(blob, file, 'png');
+    });
+  }
+
+  // 02: JPEG品質0.7で圧縮。1MB超なら0.1刻みで下げて再試行（下限0.3）
+  function processCompress(file) {
+    return loadImage(file).then(function (img) {
+      var canvas = draw(img, img.naturalWidth || img.width, img.naturalHeight || img.height, true);
+      var attempt = function (q) {
+        return toBlob(canvas, 'image/jpeg', q).then(function (blob) {
+          if (blob.size <= TARGET_BYTES || q <= Q_MIN + 1e-6) { return blob; }
+          return attempt(Math.max(Q_MIN, Math.round((q - Q_STEP) * 100) / 100));
+        });
+      };
+      return attempt(Q_START);
+    }).then(function (blob) {
+      return named(blob, file, 'jpg');
+    });
+  }
+
+  // Blob -> File（拡張子を処理結果に合わせて付け替える）
+  function named(blob, original, ext) {
+    var base = (original.name || 'image').replace(/\.[^.\\/]+$/, '');
+    var type = ext === 'png' ? 'image/png' : 'image/jpeg';
+    try {
+      return new File([blob], base + '.' + ext, { type: type });
+    } catch (e) {
+      // File コンストラクタ非対応環境用フォールバック
+      blob.name = base + '.' + ext;
+      return blob;
+    }
+  }
+
+  /* ============================================================
+   *  アップロード
+   * ========================================================== */
+  function upload(file, lane) {
+    if (!apiKey) {
+      showKeySetup('先にAPIキーを設定してください。');
+      return;
+    }
+
+    if (file.size > MAX_BYTES) {
+      var r0 = addRow(file);
+      r0.fail('20MBを超えるファイルはアップロードできません（' + fmtSize(file.size) + '）');
+      return;
+    }
+    if (lane === 'gif' && file.type !== 'image/gif') {
+      var r1 = addRow(file);
+      r1.fail('「03 GIFをそのまま」にはGIFファイルのみ投稿できます');
+      return;
+    }
+    if ((lane === 'resize' || lane === 'compress') && !/^image\//.test(file.type)) {
+      var r2 = addRow(file);
+      r2.fail('画像ファイルではありません（無加工レーンをお使いください）');
+      return;
+    }
+
+    var row = addRow(file);
+
+    var prepared;
+    if (lane === 'resize') {
+      row.note('リサイズ中...');
+      prepared = processResize(file);
+    } else if (lane === 'compress') {
+      row.note('圧縮中...');
+      prepared = processCompress(file);
+      // GIFをアニメのまま扱うため、GIF/無加工レーンは変換しない
+    } else {
+      prepared = Promise.resolve(file);
+    }
+
+    prepared.then(function (finalFile) {
+      if (finalFile.size > MAX_BYTES) {
+        throw new Error('処理後も20MBを超えています（' + fmtSize(finalFile.size) + '）');
+      }
+      row.note('送信中... (' + fmtSize(finalFile.size) + ')');
+      return send(finalFile, file.name || 'image');
+    }).then(function (url) {
+      row.success(url);
+    }).catch(function (err) {
+      row.fail(err && err.message ? err.message : 'アップロードに失敗しました');
+      console.error(err);
+    });
+  }
+
+  function send(file, displayName) {
+    var form = new FormData();
+    form.append('file', file, file.name || displayName);
+    form.append('metadata', JSON.stringify({
+      name: displayName,
+      description: 'ヨルグラ アップローダーから投稿'
+    }));
+
+    return fetch(API_URL, {
+      method: 'POST',
+      headers: { Authorization: apiKey },
+      body: form
+    }).then(function (response) {
+      if (response.status === 401 || response.status === 403) {
+        showKeySetup('APIキーが無効です。キーを確認してください');
+        throw new Error('APIキーが無効です。キーを確認してください');
+      }
+      return response.text().then(function (text) {
+        var res = null;
+        try { res = text ? JSON.parse(text) : null; } catch (e) { /* JSONでない */ }
+        if (!response.ok) {
+          var reason = (res && (res.message || res.error)) || ('HTTP ' + response.status);
+          throw new Error('アップロードに失敗しました: ' + reason);
+        }
+        // 旧版は data.url を直接見ていてGIFレーンが常に失敗していた。両形式に対応する。
+        var url = (res && res.data && res.data.url) || (res && res.url) || null;
+        if (!url) { throw new Error('アップロードに失敗しました（URLが返りませんでした）'); }
+        return url;
+      });
+    });
+  }
+
+  function fmtSize(bytes) {
+    if (bytes >= 1024 * 1024) { return (bytes / 1024 / 1024).toFixed(2) + 'MB'; }
+    return Math.max(1, Math.round(bytes / 1024)) + 'KB';
+  }
+
+  /* ============================================================
+   *  入力（ドロップ / クリック / 貼り付け）
+   * ========================================================== */
+  var pendingLane = 'compress';
+
+  Array.prototype.forEach.call(document.querySelectorAll('.zone'), function (zone) {
+    var lane = zone.getAttribute('data-lane');
+
+    zone.addEventListener('click', function () {
+      pendingLane = lane;
+      picker.accept = (lane === 'gif') ? 'image/gif' : (lane === 'raw' ? '' : 'image/*');
+      picker.value = '';
+      picker.click();
+    });
+
+    zone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      zone.classList.add('over');
+    });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('over'); });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.classList.remove('over');
+      handle(e.dataTransfer && e.dataTransfer.files, lane);
+    });
+  });
+
+  picker.addEventListener('change', function (e) {
+    handle(e.target.files, pendingLane);
+    picker.value = '';
+  });
+
+  // ページ外へのドロップでブラウザが画像を開いてしまうのを防ぐ
+  ['dragover', 'drop'].forEach(function (type) {
+    window.addEventListener(type, function (e) {
+      if (e.target && e.target.closest && e.target.closest('.zone')) { return; }
+      e.preventDefault();
+    });
+  });
+
+  // Ctrl+V 貼り付け → 既定で「02 画質を圧縮」レーン
+  document.addEventListener('paste', function (e) {
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) { return; }
+    var files = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind !== 'file') { continue; }
+      var f = items[i].getAsFile();
+      if (f && /^image\//.test(f.type)) { files.push(f); }
+    }
+    if (!files.length) { return; }
+    e.preventDefault();
+    var stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    files.forEach(function (f, idx) {
+      var ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+      var name = f.name && f.name !== 'image.png'
+        ? f.name
+        : 'paste-' + stamp + (files.length > 1 ? '-' + (idx + 1) : '') + '.' + ext;
+      var renamed;
+      try {
+        renamed = new File([f], name, { type: f.type });
+      } catch (err) {
+        renamed = f;
+      }
+      // 貼り付けたGIFはアニメを壊さないようGIFレーンへ回す
+      upload(renamed, f.type === 'image/gif' ? 'gif' : 'compress');
+    });
+  });
+
+  function handle(fileList, lane) {
+    if (!fileList || !fileList.length) { return; }
+    Array.prototype.forEach.call(fileList, function (file) { upload(file, lane); });
+  }
+
+  /* ============================================================
+   *  起動
+   * ========================================================== */
+  var saved = loadKey();
+  if (saved) {
+    apiKey = saved.key;
+    showKeyReady(saved.persist);
+  } else {
+    showKeySetup(null);
+  }
+})();
+</script>
+</body>
+</html>
