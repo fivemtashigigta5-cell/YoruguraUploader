@@ -222,24 +222,29 @@
         <span class="ttl">高さ300pxにリサイズ</span>
         <span class="dsc">縦を300pxへ縮小（PNG・透過を保持）</span>
       </div>
-      <div class="zone" data-lane="compress">
+      <div class="zone" data-lane="square">
         <span class="no">02</span>
+        <span class="ttl">縦横125pxに統一</span>
+        <span class="dsc">125×125pxの正方形に収める<br>（PNG・透過保持・余白は透明）</span>
+      </div>
+      <div class="zone" data-lane="compress">
+        <span class="no">03</span>
         <span class="ttl">画質を圧縮</span>
         <span class="dsc">解像度そのままJPEG化<br>1MB以下になるまで自動調整</span>
       </div>
       <div class="zone" data-lane="gif">
-        <span class="no">03</span>
+        <span class="no">04</span>
         <span class="ttl">GIFをそのまま</span>
         <span class="dsc">アニメーションを壊さず無変換で送信</span>
       </div>
       <div class="zone" data-lane="raw">
-        <span class="no">04</span>
+        <span class="no">05</span>
         <span class="ttl">無加工でアップ</span>
         <span class="dsc">元ファイルをそのまま送信（最大20MB）</span>
       </div>
     </div>
     <input type="file" id="picker" multiple accept="image/*" style="display:none">
-    <div class="paste"><kbd>Ctrl</kbd> + <kbd>V</kbd> でクリップボードの画像をそのまま投稿できます（「02 画質を圧縮」で処理されます）</div>
+    <div class="paste"><kbd>Ctrl</kbd> + <kbd>V</kbd> でクリップボードの画像をそのまま投稿できます（「03 画質を圧縮」で処理されます）</div>
   </section>
 
   <!-- 結果 -->
@@ -268,6 +273,7 @@
   var MAX_BYTES    = 20 * 1024 * 1024; // 20MB: 送信前に拒否
   var TARGET_BYTES = 1 * 1024 * 1024;  // 1MB: 圧縮の目標サイズ
   var RESIZE_H     = 300;
+  var SQUARE_SIZE  = 125;
   var Q_START      = 0.7;
   var Q_MIN        = 0.3;
   var Q_STEP       = 0.1;
@@ -525,7 +531,27 @@
     });
   }
 
-  // 02: JPEG品質0.7で圧縮。1MB超なら0.1刻みで下げて再試行（下限0.3）
+  // 02: 縦横125pxの正方形キャンバスに収める（比率維持・中央寄せ・余白は透明のままPNG出力）
+  function processSquare(file) {
+    return loadImage(file).then(function (img) {
+      var w = img.naturalWidth  || img.width;
+      var h = img.naturalHeight || img.height;
+      var scale = Math.min(SQUARE_SIZE / w, SQUARE_SIZE / h);
+      var dw = Math.max(1, Math.round(w * scale));
+      var dh = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width  = SQUARE_SIZE;
+      canvas.height = SQUARE_SIZE;
+      var ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, SQUARE_SIZE, SQUARE_SIZE);
+      ctx.drawImage(img, Math.round((SQUARE_SIZE - dw) / 2), Math.round((SQUARE_SIZE - dh) / 2), dw, dh);
+      return toBlob(canvas, 'image/png');
+    }).then(function (blob) {
+      return named(blob, file, 'png');
+    });
+  }
+
+  // 03: JPEG品質0.7で圧縮。1MB超なら0.1刻みで下げて再試行（下限0.3）
   function processCompress(file) {
     return loadImage(file).then(function (img) {
       var canvas = draw(img, img.naturalWidth || img.width, img.naturalHeight || img.height, true);
@@ -570,10 +596,10 @@
     }
     if (lane === 'gif' && file.type !== 'image/gif') {
       var r1 = addRow(file);
-      r1.fail('「03 GIFをそのまま」にはGIFファイルのみ投稿できます');
+      r1.fail('「04 GIFをそのまま」にはGIFファイルのみ投稿できます');
       return;
     }
-    if ((lane === 'resize' || lane === 'compress') && !/^image\//.test(file.type)) {
+    if ((lane === 'resize' || lane === 'square' || lane === 'compress') && !/^image\//.test(file.type)) {
       var r2 = addRow(file);
       r2.fail('画像ファイルではありません（無加工レーンをお使いください）');
       return;
@@ -585,6 +611,9 @@
     if (lane === 'resize') {
       row.note('リサイズ中...');
       prepared = processResize(file);
+    } else if (lane === 'square') {
+      row.note('リサイズ中...');
+      prepared = processSquare(file);
     } else if (lane === 'compress') {
       row.note('圧縮中...');
       prepared = processCompress(file);
